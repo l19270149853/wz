@@ -1,21 +1,18 @@
-name: 定时更新电视源
+name: 更新直播源
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # 每天北京时间 14:00
-  push:
-    branches: [ main ]
-
-# 关键：赋予写入权限
-permissions:
-  contents: write
+    - cron: '0 */6 * * *'  # 每6小时运行
+  workflow_dispatch:
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: 设置 Python
         uses: actions/setup-python@v5
@@ -23,15 +20,17 @@ jobs:
           python-version: '3.10'
 
       - name: 安装依赖
-        run: pip install requests
+        run: |
+          pip install requests zhconv
 
       - name: 运行抓取脚本
-        run: python tv_sort.py
+        run: python your_script.py   # 替换为您的实际脚本名
 
       - name: 提交并推送结果
         run: |
-          git config user.name "l19270149853"
-          git config user.email "362213335lkh@gmail.com"
+          git config user.name "119270149853"
+          git config user.email "3622133351kh@gmail.com"
+          git pull --rebase origin main || true   # 若失败则继续（可能无远程变更）
           git add tv_list_sorted.txt
-          git diff --quiet && git diff --staged --quiet || git commit -m "自动更新直播源 $(date '+%Y-%m-%d')"
-          git push
+          git diff --quiet && git diff --staged --quiet || git commit -m "自动更新 $(date +'%Y-%m-%d')"
+          git push origin main
