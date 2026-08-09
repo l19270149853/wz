@@ -1,67 +1,33 @@
-name: GOTTV Daily Update
+name: 定时更新电视源
 
 on:
   schedule:
-    - cron: '0 21 * * *'  # UTC时间21:00 = 北京时间5:00
-  workflow_dispatch:  # 添加手动触发选项
+    - cron: '0 6 * * *'   # 每天北京时间 14:00 运行（UTC 6:00）
+  push:                    # 也可以手动推送触发
+    branches: [ main ]
 
 jobs:
-  update-iptv:
+  update:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
+      - name: 检出代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Python 3.10
+      - name: 设置 Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Chrome and Driver
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 运行抓取脚本
+        run: python tv_sort.py
+
+      - name: 提交并推送结果
         run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser chromium-chromedriver
-          echo "CHROME_PATH=$(which chromium-browser)" >> $GITHUB_ENV
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install selenium requests eventlet
-
-      - name: Run IPTV Updater
-        env:
-          CHROME_PATH: ${{ env.CHROME_PATH }}
-        run: python GOTTV.py  # 确保脚本配置了无头模式选项
-
-      - name: Validate Output
-        run: |
-          if [ ! -s GOTTV.txt ]; then
-            echo "::error::生成的GOTTV.txt文件为空或不存在！"
-            exit 1
-          fi
-          echo "文件验证通过，记录数：$(grep -c 'EXTINF' GOTTV.txt)"
-
-      - name: Commit Changes
-        if: success()
-        run: |
-          git config --global user.name "l19270149853"
-          git config --global user.email "362213335lkh@gmail.com"
-          
-          # 智能检测文件变化
-          git add GOTTV.txt
-          if git diff-index --quiet HEAD --; then
-            echo "没有检测到内容变化，跳过提交"
-          else
-            git commit -m "自动更新IPTV列表 $(date +'%Y-%m-%d %H:%M')"
-            echo "准备推送更改..."
-          fi
-
-      - name: Push Changes
-        if: success()
-        uses: ad-m/github-push-action@v0.6.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          force: true  # 保留强制推送以防历史冲突
+          git config user.name "l19270149853"
+          git config user.email "362213335lkh@gmail.com"
+          git add tv_list_sorted.txt
+          git diff --quiet && git diff --staged --quiet || git commit -m "自动更新直播源 $(date '+%Y-%m-%d')"
+          git push
