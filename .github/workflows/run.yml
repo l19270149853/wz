@@ -2,9 +2,13 @@ name: 定时更新电视源
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # 每天北京时间 14:00 运行（UTC 6:00）
-  push:                    # 也可以手动推送触发
+    - cron: '0 6 * * *'   # 每天北京时间 14:00
+  push:
     branches: [ main ]
+
+# 关键：赋予写入权限
+permissions:
+  contents: write
 
 jobs:
   update:
@@ -26,8 +30,8 @@ jobs:
 
       - name: 提交并推送结果
         run: |
-          git config user.name "l19270149853"
-          git config user.email "362213335lkh@gmail.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add tv_list_sorted.txt
           git diff --quiet && git diff --staged --quiet || git commit -m "自动更新直播源 $(date '+%Y-%m-%d')"
           git push
