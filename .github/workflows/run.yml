@@ -36,7 +36,7 @@ jobs:
           pip install requests zhconv
 
       - name: 运行更新脚本
-        run: python update_tv.py
+        run: tv.py
 
       - name: 检查是否有有效输出
         id: check
