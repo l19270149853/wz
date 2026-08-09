@@ -28,7 +28,7 @@ jobs:
           pip install requests  # 替换为你的实际依赖
 
       - name: 运行更新脚本
-        run: python your_script.py   # 替换为你的脚本文件名
+        run: tv_sort.py   # 替换为你的脚本文件名
 
       - name: 配置 Git 用户
         run: |
