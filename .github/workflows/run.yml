@@ -2,7 +2,7 @@ name: 自动更新直播源
 
 on:
   schedule:
-    - cron: '0 2 * * *'   # 每天凌晨2点运行（可改）
+    - cron: '0 2 * * *'   # 每天凌晨2点（UTC）
   workflow_dispatch:      # 支持手动触发
 
 permissions:
@@ -16,37 +16,57 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # 拉取完整历史，以便 rebase
+          fetch-depth: 0
 
       - name: 设置 Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 安装依赖（如需）
+      - name: 缓存 pip 依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 安装依赖
         run: |
-          pip install requests  # 替换为你的实际依赖
+          pip install requests zhconv
 
       - name: 运行更新脚本
-        run: tv_sort.py   # 替换为你的脚本文件名
+        run: python update_tv.py
+
+      - name: 检查是否有有效输出
+        id: check
+        run: |
+          if [ -s tv_list_sorted.txt ]; then
+            echo "has_output=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_output=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: 配置 Git 用户
+        if: steps.check.outputs.has_output == 'true'
         run: |
-          git config user.name "l19270149853"
-          git config user.email "362213335lkh@gmail.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 提交更改
+      - name: 提交并推送更改
+        if: steps.check.outputs.has_output == 'true'
         run: |
-          git add .
-          # 如果有更改才提交，否则跳过
+          git add tv_list_sorted.txt
+
           if git diff --staged --quiet; then
-            echo "没有变更需要提交"
+            echo "文件未变化，无需提交"
             exit 0
           fi
-          git commit -m "自动更新直播源 $(date +'%Y-%m-%d')"
 
-      - name: 拉取远程最新（rebase）并推送
-        run: |
+          TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M' > commit_time.txt
+          COMMIT_MSG="自动更新直播源 $(cat commit_time.txt)"
+          git commit -m "$COMMIT_MSG"
+
           git pull --rebase origin main
           git push origin main
         env:
