@@ -1,73 +1,55 @@
-name: 自动更新直播源
-
+name: zmtv
 on:
   schedule:
-    - cron: '0 2 * * *'   # 每天凌晨2点（UTC）
-  workflow_dispatch:      # 支持手动触发
-
-permissions:
-  contents: write         # 赋予推送权限
+    - cron: '1 1 * * *'  # 每天 06:00 UTC 触发
+  push:
+    branches:
+      - main
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 设置 Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 缓存 pip 依赖
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: 安装依赖
+      - name: Install dependencies
         run: |
-          pip install requests zhconv
+          python -m pip install --upgrade pip
+          pip install selenium requests eventlet
 
-      - name: 运行更新脚本
+      - name: Run zmiptv
         run: python update_tv.py
 
-      - name: 检查是否有有效输出
-        id: check
+      - name: Verify file generation
         run: |
-          if [ -s tv_list_sorted.txt ]; then
-            echo "has_output=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_output=false" >> $GITHUB_OUTPUT
+          if [ ! -f y.txt ]; then
+            echo "::error::y.png 文件未生成！"
+            exit 1
           fi
+          echo "文件已生成，大小：$(du -h y.png | cut -f1)"
 
-      - name: 配置 Git 用户
-        if: steps.check.outputs.has_output == 'true'
-        run: |
-          git config user.name "l19270149853"
-          git config user.email "362213335lkh@gmail.com"
-
-      - name: 提交并推送更改
-        if: steps.check.outputs.has_output == 'true'
-        run: |
-          git add tv_list_sorted.txt
-
-          if git diff --staged --quiet; then
-            echo "文件未变化，无需提交"
-            exit 0
-          fi
-
-          TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M' > commit_time.txt
-          COMMIT_MSG="自动更新直播源 $(cat commit_time.txt)"
-          git commit -m "$COMMIT_MSG"
-
-          git pull --rebase origin main
-          git push origin main
+      - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 配置Git身份
+          git config --global user.email "362213335lkh@gmail.com"
+          git config --global user.name "l19270149853"
+
+          # 设置远程仓库认证
+          git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY.git
+
+          # 强制更新策略
+          git add y.png --force
+          git commit -m "强制更新 IPTV 列表 $(date +'%Y-%m-%d %H:%M') [skip ci]" --allow-empty
+
+          # 强制推送到仓库（覆盖历史）
+          git push origin main --force --force-with-lease
