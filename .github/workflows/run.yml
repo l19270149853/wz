@@ -1,0 +1,33 @@
+name: 定时更新电视源
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 每天北京时间 14:00 运行（UTC 6:00）
+  push:                    # 也可以手动推送触发
+    branches: [ main ]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 运行抓取脚本
+        run: python tv_sort.py
+
+      - name: 提交并推送结果
+        run: |
+          git config user.name "l19270149853"
+          git config user.email "362213335lkh@gmail.com"
+          git add tv_list_sorted.txt
+          git diff --quiet && git diff --staged --quiet || git commit -m "自动更新直播源 $(date '+%Y-%m-%d')"
+          git push
